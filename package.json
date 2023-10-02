@@ -1,16 +1,25 @@
 {
+  "name": "ingredients-checklist",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "next build",
     "dev": "next dev",
-    "start": "next start"
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
   },
   "dependencies": {
     "next": "latest",
-    "react": "18.2.0",
-    "react-dom": "18.2.0"
+    "puppeteer": "^21.3.6",
+    "react": "latest",
+    "react-dom": "latest"
   },
-  "engines": {
-    "node": ">=18"
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "eslint": "latest",
+    "eslint-config-next": "latest",
+    "typescript": "latest"
   }
 }
