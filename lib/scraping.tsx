@@ -1,0 +1,164 @@
+"use client";
+import puppeteer, { Page } from "puppeteer";
+import { TableProps } from "@/components/table";
+const minimal_args = [
+  "--autoplay-policy=user-gesture-required",
+  "--disable-background-networking",
+  "--disable-background-timer-throttling",
+  "--disable-backgrounding-occluded-windows",
+  "--disable-breakpad",
+  "--disable-client-side-phishing-detection",
+  "--disable-component-update",
+  "--disable-default-apps",
+  "--disable-dev-shm-usage",
+  "--disable-domain-reliability",
+  "--disable-extensions",
+  "--disable-features=AudioServiceOutOfProcess",
+  "--disable-hang-monitor",
+  "--disable-ipc-flooding-protection",
+  "--disable-notifications",
+  "--disable-offer-store-unmasked-wallet-cards",
+  "--disable-popup-blocking",
+  "--disable-print-preview",
+  "--disable-prompt-on-repost",
+  "--disable-renderer-backgrounding",
+  "--disable-setuid-sandbox",
+  "--disable-speech-api",
+  "--disable-sync",
+  "--hide-scrollbars",
+  "--ignore-gpu-blacklist",
+  "--metrics-recording-only",
+  "--mute-audio",
+  "--no-default-browser-check",
+  "--no-first-run",
+  "--no-pings",
+  "--no-sandbox",
+  "--no-zygote",
+  "--password-store=basic",
+  "--use-gl=swiftshader",
+  "--use-mock-keychain",
+];
+
+export async function scraping(url: string): Promise<TableProps[] | string> {
+  console.log("url: ", url);
+
+  const browser = await puppeteer.launch({
+    headless: "new",
+    args: minimal_args,
+  });
+  const page = await browser.newPage();
+  await page.setRequestInterception(true);
+  page.on("request", (request) => {
+    if (url === request.url()) {
+      request.continue().catch((err) => console.error(err));
+    } else {
+      request.abort().catch((err) => console.error(err));
+    }
+  });
+  await page.setDefaultNavigationTimeout(0);
+  await page.goto(url);
+
+  // ドメインからレシピサイトを判定
+  const domain = new URL(url).hostname;
+  console.log("domain: ", domain);
+
+  let result: TableProps[] | string = "";
+  switch (domain) {
+    // リュウジのバズレシピ
+    case "bazurecipe.com":
+      result = await bazurecipe(page);
+      break;
+
+    // つくおき
+    case "cookien.com":
+      result = await cookien(page);
+      break;
+
+    // クックパッド
+    // case "cookpad.com":
+    // result = await cookpad(page);
+    // break;
+
+    default:
+      result = "対応していないサイトです。";
+      break;
+  }
+  console.log("result: ", result);
+
+  await browser.close();
+  return result;
+}
+
+// リュウジのバズレシピ
+async function bazurecipe(page: Page): Promise<TableProps[]> {
+  // #top > div.l-wrapper > main > div > div.postContents > section > div:nth-child(5)
+  const section = await page.waitForSelector("section.content");
+  const parents = await section?.$$("div:not([class])");
+  if (!parents) {
+    return new Promise((rejects) => rejects([]));
+  }
+  let ingredientsTexts: string[] = [];
+  for (const parent of parents) {
+    if (
+      (await parent.$$("xpath/" + ".//b[contains(text(), '材料')]")) !== null
+    ) {
+      ingredientsTexts = (
+        await page.evaluate((elm) => elm?.textContent ?? "", parent)
+      )
+        .split("\n")
+        .slice(1);
+      break;
+    }
+  }
+
+  // 文字列操作
+  // todo:"＝ソース＝"のような材料上の区切りがある場合に対応（現状はスキップしている）
+  const result: TableProps[] = [];
+  for (const ingredientsText of ingredientsTexts) {
+    if (ingredientsText.indexOf("＝") !== -1) {
+      continue;
+    }
+    const [ingredient, amount] = ingredientsText
+      .split(/…+/)
+      .map((str) => str.trim());
+    result.push({
+      checked: false,
+      ingredient: ingredient,
+      amount: amount,
+    });
+  }
+
+  return new Promise((resolve) => resolve(result));
+}
+
+// つくおき
+async function cookien(page: Page): Promise<TableProps[]> {
+  // #copyIngredientBtn
+  const copyBtn = await page.waitForSelector("#copyIngredientBtn");
+  const ingredientsTexts =
+    (await copyBtn?.evaluate((node) => node.getAttribute("data-text")))?.split(
+      "\n"
+    ) ?? [];
+
+  // 文字列操作
+  const result: TableProps[] = [];
+  for (let ingredientsText of ingredientsTexts) {
+    // 全角スペースを半角スペースに変換
+    while ((ingredientsText.match(/　/g) || []).length > 1) {
+      ingredientsText = ingredientsText.replace("　", " ");
+    }
+    // ◎や◯を削除
+    ingredientsText = ingredientsText.replace(/◎|◯/g, "");
+
+    const [ingredient, amount] = ingredientsText
+      .split("　")
+      .map((str) => str.trim());
+    result.push({
+      checked: false,
+      ingredient: ingredient,
+      amount: amount,
+    });
+  }
+
+  return new Promise((resolve) => resolve(result));
+}

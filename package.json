@@ -15,11 +15,15 @@
     "react-dom": "latest"
   },
   "devDependencies": {
+    "@types/express": "^4.17.18",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "eslint": "latest",
     "eslint-config-next": "latest",
     "typescript": "latest"
+  },
+  "engines": {
+    "node": ">18"
   }
 }
