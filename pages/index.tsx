@@ -79,6 +79,8 @@ export default function Home() {
       <main className={styles.main}>
         <div className={styles.description}>
           <p>材料リストを取ってくるレシピのURLを入力してください</p>
+          <p>対応サイト: bazurecipe.com, cookien.com</p>
+          <p>※取得ボタンをむやみに押さないでください。</p>
           <div className={styles.form}>
             <input type="text" id="url" className={styles.input} placeholder="https://example.com" />
             <button className={styles.button} onClick={clicked}>
