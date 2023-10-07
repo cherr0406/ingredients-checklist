@@ -1,5 +1,5 @@
 "use client";
-import chromium from "@sparticuz/chromium-min";
+import chromium from "@sparticuz/chromium";
 import puppeteer, { Page } from "puppeteer-core";
 import { TableProps } from "@/components/table";
 const minimal_args = [
@@ -47,7 +47,7 @@ const exePath =
     ? "/usr/bin/google-chrome"
     : "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
-const isProd = process.env.VERCEL;
+const isProd = process.env.NEXT_PUBLIC_VERCEL;
 
 const getOption = async () => {
   console.log(isProd);
