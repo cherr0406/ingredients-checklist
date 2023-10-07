@@ -1,5 +1,6 @@
 "use client";
-import puppeteer, { Page } from "puppeteer";
+import chrome from "chrome-aws-lambda";
+import puppeteer, { Page } from "puppeteer-core";
 import { TableProps } from "@/components/table";
 const minimal_args = [
   "--autoplay-policy=user-gesture-required",
@@ -39,13 +40,34 @@ const minimal_args = [
   "--use-mock-keychain",
 ];
 
+const exePath =
+  process.platform === "win32"
+    ? "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
+    : process.platform === "linux"
+    ? "/usr/bin/google-chrome"
+    : "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+
+const isProd = process.env.VERCEL;
+
+const getOption = async () => {
+  return isProd
+    ? {
+        args: [...minimal_args, ...chrome.args],
+        executablePath: await chrome.executablePath,
+        headless: chrome.headless,
+      }
+    : {
+        args: [...minimal_args],
+        executablePath: exePath,
+        headless: true,
+      };
+};
+
 export async function scraping(url: string): Promise<TableProps[]> {
   console.log("url: ", url);
 
-  const browser = await puppeteer.launch({
-    headless: "new",
-    args: minimal_args,
-  });
+  const option = await getOption();
+  const browser = await puppeteer.launch({ ...option, args: minimal_args });
 
   try {
     const page = await browser.newPage();
@@ -113,14 +135,8 @@ async function bazurecipe(page: Page): Promise<TableProps[]> {
   }
   let ingredientsTexts: string[] = [];
   for (const parent of parents) {
-    if (
-      (await parent.$$("xpath/" + ".//b[contains(text(), '材料')]")) !== null
-    ) {
-      ingredientsTexts = (
-        await page.evaluate((elm) => elm?.textContent ?? "", parent)
-      )
-        .split("\n")
-        .slice(1);
+    if ((await parent.$$("xpath/" + ".//b[contains(text(), '材料')]")) !== null) {
+      ingredientsTexts = (await page.evaluate((elm) => elm?.textContent ?? "", parent)).split("\n").slice(1);
       break;
     }
   }
@@ -132,9 +148,7 @@ async function bazurecipe(page: Page): Promise<TableProps[]> {
     if (ingredientsText.indexOf("＝") !== -1) {
       continue;
     }
-    const [ingredient, amount] = ingredientsText
-      .split(/…+/)
-      .map((str) => str.trim());
+    const [ingredient, amount] = ingredientsText.split(/…+/).map((str) => str.trim());
     result.push({
       checked: false,
       ingredient: ingredient,
@@ -149,10 +163,7 @@ async function bazurecipe(page: Page): Promise<TableProps[]> {
 async function cookien(page: Page): Promise<TableProps[]> {
   // #copyIngredientBtn
   const copyBtn = await page.waitForSelector("#copyIngredientBtn");
-  const ingredientsTexts =
-    (await copyBtn?.evaluate((node) => node.getAttribute("data-text")))?.split(
-      "\n"
-    ) ?? [];
+  const ingredientsTexts = (await copyBtn?.evaluate((node) => node.getAttribute("data-text")))?.split("\n") ?? [];
 
   // 文字列操作
   const result: TableProps[] = [];
@@ -164,9 +175,7 @@ async function cookien(page: Page): Promise<TableProps[]> {
     // ◎や◯を削除
     ingredientsText = ingredientsText.replace(/◎|◯/g, "");
 
-    const [ingredient, amount] = ingredientsText
-      .split("　")
-      .map((str) => str.trim());
+    const [ingredient, amount] = ingredientsText.split("　").map((str) => str.trim());
     result.push({
       checked: false,
       ingredient: ingredient,
