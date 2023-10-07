@@ -1,5 +1,5 @@
 "use client";
-import chromium from "@sparticuz/chromium-min";
+import chromium from "@sparticuz/chromium";
 import puppeteer, { Page } from "puppeteer-core";
 import { TableProps } from "@/components/table";
 const minimal_args = [
