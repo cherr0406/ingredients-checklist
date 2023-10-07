@@ -1,5 +1,6 @@
-import puppeteer, { Page } from "puppeteer-core";
+"use client";
 import chromium from "@sparticuz/chromium-min";
+import puppeteer, { Page } from "puppeteer-core";
 import { TableProps } from "@/components/table";
 const minimal_args = [
   "--autoplay-policy=user-gesture-required",
@@ -57,7 +58,6 @@ const getOption = async () => {
       defaultViewport: chromium.defaultViewport,
       executablePath: await chromium.executablePath(),
       headless: chromium.headless,
-      ignoreHTTPSErrors: true,
     };
     if (chromium.headless == "new") {
       option = {
