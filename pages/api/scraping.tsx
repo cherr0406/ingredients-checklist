@@ -1,7 +1,7 @@
-import { scraping } from "../../lib/scraping";
+import { scraping } from "@/lib/scraping";
 import { Request, Response } from "express";
 
-export default async function handler(req: Request, res: Response) {
+export default async function handler(req: Request, res: Response): Promise<object> {
   const { url } = req.query;
 
   if (!url) {
@@ -12,7 +12,10 @@ export default async function handler(req: Request, res: Response) {
     const props = await scraping(url.toString());
     return res.status(200).json(props);
   } catch (error) {
-    console.error(error);
-    return res.status(500);
+    let message = "Unknown error";
+    if (error instanceof Error) {
+      message = error.message;
+    }
+    return res.status(500).json({ error: message });
   }
 }

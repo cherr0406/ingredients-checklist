@@ -74,7 +74,9 @@ export default function Table({
         <thead>
           <tr>
             <th>
-              <button className={styles.sortButton} onClick={sortData}>sort</button>
+              <button className={styles.sortButton} onClick={sortData}>
+                sort
+              </button>
             </th>
             <th>材料</th>
             <th>量</th>

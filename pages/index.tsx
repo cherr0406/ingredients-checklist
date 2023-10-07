@@ -1,74 +1,77 @@
 import styles from "./index.module.css";
-import Layout from "../components/layout";
+import Layout from "@/components/layout";
 import { useState } from "react";
 import Table, { TableProps } from "@/components/table";
+import useSWRMutation, { MutationFetcher } from "swr/mutation";
+
+const tablePropsFetcher: MutationFetcher<TableProps[]> = async (apiUrl: string) => {
+  // 入力されたURLを取得
+  const urlInput: HTMLInputElement | null = document.getElementById("url") as HTMLInputElement | null;
+  const url = urlInput?.value;
+  if (!url) {
+    return;
+  }
+  // API Routeにリクエスト
+  const requestUrl = apiUrl + "?url=" + encodeURIComponent(url);
+  const res = await fetch(requestUrl);
+  // エラーハンドリング
+  if (!res.ok) {
+    const errorRes = await res.json();
+    throw new Error(errorRes.error);
+  }
+  return res.json();
+};
 
 export default function Home() {
-  const [resultComponent, setResultComponent] = useState<TableProps[]>([]);
-  const [isTableShow, setTableShow] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("結果がここに表示されます");
+  const [tableData, setTableData] = useState<TableProps[]>([]);
+  const [isTableShow, setTableShow] = useState<boolean>(false);
+  const [displayMsg, setDisplayMsg] = useState<string>("結果がここに表示されます");
+  const { trigger } = useSWRMutation("/api/scraping", tablePropsFetcher);
 
+  // テーブルを表示
   function resultElement(isTableShow: boolean) {
     if (isTableShow) {
       return (
         <Table
-          data={resultComponent}
+          data={tableData}
           handleChangeChecked={(e) => checked(e)}
-          handleSorted={(data) => setResultComponent(data)}
+          handleSorted={(data) => setTableData(data)}
           handleReset={() => resetTable()}
         ></Table>
       );
     } else {
-      return <div>{errorMsg}</div>;
+      return <div>{displayMsg}</div>;
     }
   }
 
+  // 取得ボタンを押したときの処理
   async function clicked() {
-    console.log("clicked");
-    const urlInput: HTMLInputElement | null = document.getElementById(
-      "url"
-    ) as HTMLInputElement | null;
-    const url = urlInput?.value;
-    if (!url) {
-      return;
-    }
+    // API Routeに再リクエスト
     try {
-      const response = await fetch(
-        `/api/scraping?url=${encodeURIComponent(url)}`
-      );
-      const data = await response.json();
-      if (!response.ok) {
-        // ステータスコードが200番台以外の場合
-        throw new Error(response.statusText + "\n" + data.error || "");
-      } else if (!Array.isArray(data)) {
-        // dataの型がTableProps[]か判定
-        throw new Error(data);
-      } else if (data.length === 0) {
-        // dataの長さが0の場合
-        throw new Error("材料が取得できませんでした。");
-      }
-      setResultComponent(data);
+      const newData = await trigger();
+      setTableData(newData);
       setTableShow(true);
-      console.log("Successfully fetched data");
-    } catch (error) {
-      if (error instanceof Error) {
-        setErrorMsg(error.message);
+    } catch (e) {
+      let message = "不明なエラーが発生しました。";
+      if (e instanceof Error) {
+        message = e.message;
       }
+      setDisplayMsg(message);
       setTableShow(false);
-      console.error(error);
     }
   }
 
-  function checked(e: any) {
-    setResultComponent((prev) => {
+  // チェックボックスを押したときの処理
+  function checked(el: any) {
+    setTableData((prev) => {
       const newResult = [...prev];
-      newResult[e.target.id].checked = e.target.checked;
+      newResult[el.target.id].checked = el.target.checked;
       return newResult;
     });
   }
 
   function resetTable() {
-    setResultComponent([]);
+    setTableData([]);
   }
 
   return (
@@ -77,12 +80,7 @@ export default function Home() {
         <div className={styles.description}>
           <p>材料リストを取ってくるレシピのURLを入力してください</p>
           <div className={styles.form}>
-            <input
-              type="text"
-              id="url"
-              className={styles.input}
-              placeholder="https://example.com"
-            />
+            <input type="text" id="url" className={styles.input} placeholder="https://example.com" />
             <button className={styles.button} onClick={clicked}>
               取得
             </button>

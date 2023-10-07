@@ -39,54 +39,68 @@ const minimal_args = [
   "--use-mock-keychain",
 ];
 
-export async function scraping(url: string): Promise<TableProps[] | string> {
+export async function scraping(url: string): Promise<TableProps[]> {
   console.log("url: ", url);
 
   const browser = await puppeteer.launch({
     headless: "new",
     args: minimal_args,
   });
-  const page = await browser.newPage();
-  await page.setRequestInterception(true);
-  page.on("request", (request) => {
-    if (url === request.url()) {
-      request.continue().catch((err) => console.error(err));
-    } else {
-      request.abort().catch((err) => console.error(err));
+
+  try {
+    const page = await browser.newPage();
+    await page.setRequestInterception(true);
+    page.on("request", (request) => {
+      if (url === request.url()) {
+        request.continue().catch((err) => console.error(err));
+      } else {
+        request.abort().catch((err) => console.error(err));
+      }
+    });
+    page.setDefaultNavigationTimeout(0);
+    await page.goto(url);
+
+    // ドメインからレシピサイトを判定
+    const domain = new URL(url).hostname;
+    console.log("domain: ", domain);
+
+    let result: TableProps[] = [];
+    switch (domain) {
+      // リュウジのバズレシピ
+      case "bazurecipe.com":
+        result = await bazurecipe(page);
+        break;
+
+      // つくおき
+      case "cookien.com":
+        result = await cookien(page);
+        break;
+
+      // クックパッド
+      // case "cookpad.com":
+      // result = await cookpad(page);
+      // break;
+
+      default:
+        throw new Error("対応していないWebサイトです。");
     }
-  });
-  await page.setDefaultNavigationTimeout(0);
-  await page.goto(url);
+    console.log("result: ", result);
 
-  // ドメインからレシピサイトを判定
-  const domain = new URL(url).hostname;
-  console.log("domain: ", domain);
+    if (result.length === 0) {
+      throw new Error("材料が取得できませんでした。");
+    }
 
-  let result: TableProps[] | string = "";
-  switch (domain) {
-    // リュウジのバズレシピ
-    case "bazurecipe.com":
-      result = await bazurecipe(page);
-      break;
-
-    // つくおき
-    case "cookien.com":
-      result = await cookien(page);
-      break;
-
-    // クックパッド
-    // case "cookpad.com":
-    // result = await cookpad(page);
-    // break;
-
-    default:
-      result = "対応していないサイトです。";
-      break;
+    return result;
+  } catch (error) {
+    let message = "エラーが発生しました。";
+    if (error instanceof Error) {
+      message = error.message;
+    }
+    console.log(error);
+    throw new Error(message);
+  } finally {
+    await browser.close();
   }
-  console.log("result: ", result);
-
-  await browser.close();
-  return result;
 }
 
 // リュウジのバズレシピ
