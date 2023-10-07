@@ -71,7 +71,6 @@ export async function scraping(url: string): Promise<TableProps[]> {
   const isProd = process.env.NEXT_PUBLIC_VERCEL;
 
   const getOption = async () => {
-    console.log(isProd);
     let option = {};
     if (isProd) {
       option = {
@@ -96,9 +95,7 @@ export async function scraping(url: string): Promise<TableProps[]> {
     return option;
   };
 
-  console.log("url: ", url);
   const option = await getOption();
-  console.log(option);
   const browser = await puppeteer.launch(option);
 
   try {
@@ -138,7 +135,6 @@ export async function scraping(url: string): Promise<TableProps[]> {
       default:
         throw new Error("対応していないWebサイトです。");
     }
-    console.log("result: ", result);
 
     if (result.length === 0) {
       throw new Error("材料が取得できませんでした。");
