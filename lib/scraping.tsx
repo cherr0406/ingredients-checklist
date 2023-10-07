@@ -1,5 +1,5 @@
 "use client";
-import chrome from "chrome-aws-lambda";
+import chromium from "@sparticuz/chromium-min";
 import puppeteer, { Page } from "puppeteer-core";
 import { TableProps } from "@/components/table";
 const minimal_args = [
@@ -50,24 +50,35 @@ const exePath =
 const isProd = process.env.VERCEL;
 
 const getOption = async () => {
-  return isProd
-    ? {
-        args: [...minimal_args, ...chrome.args],
-        executablePath: await chrome.executablePath,
-        headless: chrome.headless,
-      }
-    : {
-        args: [...minimal_args],
-        executablePath: exePath,
-        headless: true,
+  console.log(isProd);
+  let option = {};
+  if (isProd) {
+    option = {
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+    };
+    if (chromium.headless == "new") {
+      option = {
+        headless: chromium.headless,
       };
+    }
+  } else {
+    option = {
+      args: minimal_args,
+      executablePath: exePath,
+      headless: "new",
+    };
+  }
+  return option;
 };
 
 export async function scraping(url: string): Promise<TableProps[]> {
   console.log("url: ", url);
 
   const option = await getOption();
-  const browser = await puppeteer.launch({ ...option, args: minimal_args });
+  const browser = await puppeteer.launch(option);
 
   try {
     const page = await browser.newPage();

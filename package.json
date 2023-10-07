@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "chrome-aws-lambda": "^10.1.0",
+    "@sparticuz/chromium-min": "^117.0.0",
     "next": "latest",
     "puppeteer-core": "^10.4.0",
     "react": "latest",
