@@ -7,26 +7,35 @@ import useSWRMutation, { MutationFetcher } from "swr/mutation";
 const tablePropsFetcher: MutationFetcher<TableProps[]> = async (apiUrl: string) => {
   // 入力されたURLを取得
   const urlInput: HTMLInputElement | null = document.getElementById("url") as HTMLInputElement | null;
-  const url = urlInput?.value;
-  if (!url) {
-    return;
+  const urls = urlInput?.value.split(",");
+  if (!urls) {
+    console.error("URLが入力されていません。");
+    throw new Error("URLが入力されていません。");
   }
+
+  const data: TableProps[] = [];
   // API Routeにリクエスト
-  const requestUrl = apiUrl + "?url=" + encodeURIComponent(url);
-  const res = await fetch(requestUrl);
-  // エラーハンドリング
-  if (!res.ok) {
-    const errorRes = await res.json();
-    throw new Error(errorRes.error);
+  for (const url of urls) {
+    const res = await fetch(apiUrl + "?url=" + encodeURIComponent(url));
+    // エラーハンドリング
+    if (!res.ok) {
+      const errorRes = await res.json();
+      throw new Error(errorRes.error);
+    }
+    const result = await res.json();
+
+    // テーブルに追加
+    data.push(...result);
   }
-  return res.json();
+
+  return data;
 };
 
 export default function Home() {
   const [tableData, setTableData] = useState<TableProps[]>([]);
   const [isTableShow, setTableShow] = useState<boolean>(false);
   const [displayMsg, setDisplayMsg] = useState<string>("結果がここに表示されます");
-  const { trigger } = useSWRMutation("/api/scraping", tablePropsFetcher);
+  const { trigger, isMutating } = useSWRMutation("/api/scraping", tablePropsFetcher);
 
   // テーブルを表示
   function resultElement(isTableShow: boolean) {
@@ -37,6 +46,7 @@ export default function Home() {
           handleChangeChecked={(e) => checked(e)}
           handleSorted={(data) => setTableData(data)}
           handleReset={() => resetTable()}
+          handleGroup={() => groupTable()}
         ></Table>
       );
     } else {
@@ -49,7 +59,10 @@ export default function Home() {
     // API Routeに再リクエスト
     try {
       const newData = await trigger();
-      setTableData(newData);
+
+      setTableData((prev) => {
+        return [...prev, ...newData];
+      });
       setTableShow(true);
     } catch (e) {
       let message = "不明なエラーが発生しました。";
@@ -74,6 +87,21 @@ export default function Home() {
     setTableData([]);
   }
 
+  function groupTable() {
+    // 同じingredientを持つTablePropsをまとめる
+    const newResult: TableProps[] = [];
+    const ingredients = new Set<string>();
+    for (const row of tableData) {
+      if (!ingredients.has(row.ingredient)) {
+        newResult.push(row);
+        ingredients.add(row.ingredient);
+      } else {
+        const index = newResult.findIndex((v) => v.ingredient === row.ingredient);
+        newResult[index].amount += "+" + row.amount;
+      }
+    }
+  }
+
   return (
     <Layout>
       <main className={styles.main}>
@@ -81,9 +109,14 @@ export default function Home() {
           <p>材料リストを取ってくるレシピのURLを入力してください</p>
           <p>対応サイト: bazurecipe.com, cookien.com</p>
           <p>※取得ボタンをむやみに押さないでください。</p>
-          {process.env.NEXT_PUBLIC_VERCEL}
           <div className={styles.form}>
-            <input type="text" id="url" className={styles.input} placeholder="https://example.com" />
+            <input
+              type="text"
+              id="url"
+              className={styles.input}
+              placeholder="https://example.com"
+              disabled={isMutating}
+            />
             <button className={styles.button} onClick={clicked}>
               取得
             </button>

@@ -13,14 +13,10 @@ interface Props {
   handleChangeChecked: (e: ChangeEvent<HTMLInputElement>) => void;
   handleSorted: (data: TableProps[]) => void;
   handleReset: () => void;
+  handleGroup: () => void;
 }
 
-export default function Table({
-  data,
-  handleChangeChecked,
-  handleSorted,
-  handleReset,
-}: Props) {
+export default function Table({ data, handleChangeChecked, handleSorted, handleReset, handleGroup }: Props) {
   const [tbodyElem, setTbodyElem] = useState<JSX.Element>();
 
   // チェック済のものを下に持ってくる
@@ -32,9 +28,7 @@ export default function Table({
       return !row.checked;
     });
     handleSorted([...uncheckedData, ...checkedData]);
-    setTbodyElem(
-      <tbody>{mapTableData([...uncheckedData, ...checkedData])}</tbody>
-    );
+    setTbodyElem(<tbody>{mapTableData([...uncheckedData, ...checkedData])}</tbody>);
   }
 
   // テーブルのデータをmapする（メモ化）
@@ -49,9 +43,7 @@ export default function Table({
                 type="checkbox"
                 id={i.toString()}
                 checked={row.checked}
-                onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                  handleChangeChecked(e)
-                }
+                onChange={(e: ChangeEvent<HTMLInputElement>) => handleChangeChecked(e)}
               />
             </td>
             <td>{row.ingredient}</td>
@@ -85,6 +77,7 @@ export default function Table({
         {tbodyElem}
       </table>
       <div className={styles.buttonContainer}>
+        <button onClick={handleGroup}>同じ材料をまとめる</button>
         <button onClick={handleReset}>reset</button>
       </div>
     </div>
