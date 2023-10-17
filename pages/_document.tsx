@@ -4,6 +4,7 @@ export default function Document() {
   return (
     <Html lang="ja">
       <Head>
+        <meta title="Ingredients Checklist" />
         <meta
           name="description"
           content="レシピから材料だけを抽出してリストアップします。"
