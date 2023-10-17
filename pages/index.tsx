@@ -100,6 +100,7 @@ export default function Home() {
         newResult[index].amount += "+" + row.amount;
       }
     }
+    setTableData(newResult);
   }
 
   return (
