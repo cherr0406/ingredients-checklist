@@ -163,6 +163,7 @@ async function bazurecipe(page: Page): Promise<TableProps[]> {
   }
   let ingredientsTexts: string[] = [];
   for (const parent of parents) {
+    // Error: Query set to use "xpath", but no query handler of that name was found が発生する
     if ((await parent.$$("xpath/" + ".//b[contains(text(), '材料')]")) !== null) {
       ingredientsTexts = (await page.evaluate((elm) => elm?.textContent ?? "", parent)).split("\n").slice(1);
       break;
@@ -189,21 +190,26 @@ async function bazurecipe(page: Page): Promise<TableProps[]> {
 
 // つくおき
 async function cookien(page: Page): Promise<TableProps[]> {
-  // #copyIngredientBtn
-  const copyBtn = await page.waitForSelector("#copyIngredientBtn");
-  const ingredientsTexts = (await copyBtn?.evaluate((node) => node.getAttribute("data-text")))?.split("\n") ?? [];
-
-  // 文字列操作
+  // #r_contents > p, #r_contents > p > span
+  // <p>豚もも薄切り肉<span>約２００ｇ（８～１０枚）</span></p>
+  // -> 豚もも薄切り肉 と 約２００ｇ（８～１０枚） をそれぞれ取得
+  const rContents = await page.waitForSelector("#r_contents");
+  const ingredientsElems = await rContents?.$$("p");
+  if (!ingredientsElems) {
+    return new Promise((rejects) => rejects([]));
+  }
   const result: TableProps[] = [];
-  for (let ingredientsText of ingredientsTexts) {
-    // 全角スペースを半角スペースに変換
-    while ((ingredientsText.match(/　/g) || []).length > 1) {
-      ingredientsText = ingredientsText.replace("　", " ");
-    }
-    // ◎や◯を削除
-    ingredientsText = ingredientsText.replace(/◎|◯/g, "");
-
-    const [ingredient, amount] = ingredientsText.split("　").map((str) => str.trim());
+  for (const ingredientsElem of ingredientsElems) {
+    const text: string = (await (await ingredientsElem.getProperty("textContent"))?.jsonValue()) ?? "";
+    const amount: string =
+      (await (await (await ingredientsElem.$("span"))?.getProperty("textContent"))?.jsonValue()) ?? "";
+    // text - amount で材料名を取得
+    // ◯,◎を消去
+    // （メモ1）,（メモ2）,...を消去
+    const ingredient = text
+      .replace(new RegExp("(.*)" + amount), "$1")
+      .replace(new RegExp("◯|◎", "g"), "")
+      .replace(/（メモ.*）/g, "");
     result.push({
       checked: false,
       ingredient: ingredient,
