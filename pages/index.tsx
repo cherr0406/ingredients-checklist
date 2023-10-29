@@ -106,7 +106,7 @@ export default function Home() {
   }
 
   return (
-    <Layout>
+    <Layout title="Ingredients Checklist">
       <main className={styles.main}>
         <div className={styles.description}>
           <p>材料リストを取ってくるレシピのURLを入力してください</p>
