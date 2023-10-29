@@ -127,6 +127,11 @@ export async function scraping(url: string): Promise<TableProps[]> {
         result = await cookien(page);
         break;
 
+      // DELISH KITCHEN
+      case 'delishkitchen.tv':
+        result = await delishkitchen(page);
+        break;
+
       // クックパッド
       // case "cookpad.com":
       // result = await cookpad(page);
@@ -219,6 +224,40 @@ async function cookien(page: Page): Promise<TableProps[]> {
       ingredient: ingredient,
       amount: amount,
     });
+  }
+
+  return new Promise((resolve) => resolve(result));
+}
+
+// DELISH KITCHEN
+async function delishkitchen(page: Page): Promise<TableProps[]> {
+  // ul.ingredient-list > li
+  // <li class="ingredient" data-v-ae6b758c="">
+  //  <a href="..." class="ingredient-name" data-v-ae6b758c=""> ピーマン </a>
+  //  <span class="ingredient-serving" data-v-ae6b758c="">2個</span>
+  // </li>
+  const ingredientList = await page.waitForSelector('ul.ingredient-list');
+  const ingredientsElems = await ingredientList?.$$('li');
+  if (!ingredientsElems) {
+    return new Promise((rejects) => rejects([]));
+  }
+  const result: TableProps[] = [];
+  for (const ingredientsElem of ingredientsElems) {
+    const ingredient: string =
+      (await (
+        await (await ingredientsElem.$('.ingredient-name'))?.getProperty('textContent')
+      )?.jsonValue()) ?? '';
+    const amount: string =
+      (await (
+        await (await ingredientsElem.$('.ingredient-serving'))?.getProperty('textContent')
+      )?.jsonValue()) ?? '';
+    if (ingredient && amount) {
+      result.push({
+        checked: false,
+        ingredient: ingredient,
+        amount: amount,
+      });
+    }
   }
 
   return new Promise((resolve) => resolve(result));
