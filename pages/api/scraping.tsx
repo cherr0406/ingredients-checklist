@@ -133,9 +133,9 @@ export async function scraping(url: string): Promise<TableProps[]> {
         break;
 
       // クックパッド
-      // case "cookpad.com":
-      // result = await cookpad(page);
-      // break;
+      case 'cookpad.com':
+        result = await cookpad(page);
+        break;
 
       default:
         throw new Error('対応していないWebサイトです。');
@@ -260,5 +260,41 @@ async function delishkitchen(page: Page): Promise<TableProps[]> {
     }
   }
 
+  return new Promise((resolve) => resolve(result));
+}
+
+// クックパッド
+async function cookpad(page: Page): Promise<TableProps[]> {
+  // #ingredients_list > div.ingredient_row
+  // <div class="ingredient_row">
+  //   <div class="ingredient_name"><span class="name">鶏ひき肉</span></div>
+  //   <div class="ingredient_quantity amount">300g〜350g</div>
+  // </div>
+  const ingredientsList = await page.waitForSelector('#ingredients_list');
+  const ingredientsElems = await ingredientsList?.$$('div.ingredient_row');
+  if (!ingredientsElems) {
+    return new Promise((rejects) => rejects([]));
+  }
+  const result: TableProps[] = [];
+  for (const ingredientsElem of ingredientsElems) {
+    const ingredient_raw: string =
+      (await (
+        await (await ingredientsElem.$('.ingredient_name .name'))?.getProperty('textContent')
+      )?.jsonValue()) ?? '';
+    // ◯,◎,☆を削除
+    const ingredient = ingredient_raw.replace(new RegExp('☆|◯|◎', 'g'), '');
+    const amount: string =
+      (await (
+        await (await ingredientsElem.$('.ingredient_quantity'))?.getProperty('textContent')
+      )?.jsonValue()) ?? '';
+    if (ingredient && amount) {
+      result.push({
+        checked: false,
+        ingredient: ingredient,
+        amount: amount,
+      });
+    }
+  }
+  console.log(result);
   return new Promise((resolve) => resolve(result));
 }
