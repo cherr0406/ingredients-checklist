@@ -110,7 +110,7 @@ export default function Home() {
       <main className={styles.main}>
         <div className={styles.description}>
           <p>材料リストを取ってくるレシピのURLを入力してください</p>
-          <p>対応サイト: bazurecipe.com, cookien.com</p>
+          <p>対応サイト: bazurecipe.com, cookien.com, delishkitchen.tv, cookpad.com</p>
           <p>※取得ボタンをむやみに押さないでください。</p>
           <div className={styles.form}>
             <input
