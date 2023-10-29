@@ -1,22 +1,24 @@
-import styles from "./index.module.css";
-import Layout from "@/components/layout";
-import { useState } from "react";
-import Table, { TableProps } from "@/components/table";
-import useSWRMutation, { MutationFetcher } from "swr/mutation";
+import styles from './index.module.css';
+import Layout from '@/components/layout';
+import { useState } from 'react';
+import Table, { TableProps } from '@/components/table';
+import useSWRMutation, { MutationFetcher } from 'swr/mutation';
 
 const tablePropsFetcher: MutationFetcher<TableProps[]> = async (apiUrl: string) => {
   // 入力されたURLを取得
-  const urlInput: HTMLInputElement | null = document.getElementById("url") as HTMLInputElement | null;
-  const urls = urlInput?.value.split(",");
+  const urlInput: HTMLInputElement | null = document.getElementById(
+    'url'
+  ) as HTMLInputElement | null;
+  const urls = urlInput?.value.split(',');
   if (!urls) {
-    console.error("URLが入力されていません。");
-    throw new Error("URLが入力されていません。");
+    console.error('URLが入力されていません。');
+    throw new Error('URLが入力されていません。');
   }
 
   const data: TableProps[] = [];
   // API Routeにリクエスト
   for (const url of urls) {
-    const res = await fetch(apiUrl + "?url=" + encodeURIComponent(url));
+    const res = await fetch(apiUrl + '?url=' + encodeURIComponent(url));
     // エラーハンドリング
     if (!res.ok) {
       const errorRes = await res.json();
@@ -34,8 +36,8 @@ const tablePropsFetcher: MutationFetcher<TableProps[]> = async (apiUrl: string) 
 export default function Home() {
   const [tableData, setTableData] = useState<TableProps[]>([]);
   const [isTableShow, setTableShow] = useState<boolean>(false);
-  const [displayMsg, setDisplayMsg] = useState<string>("結果がここに表示されます");
-  const { trigger, isMutating } = useSWRMutation("/api/scraping", tablePropsFetcher);
+  const [displayMsg, setDisplayMsg] = useState<string>('結果がここに表示されます');
+  const { trigger, isMutating } = useSWRMutation('/api/scraping', tablePropsFetcher);
 
   // テーブルを表示
   function resultElement(isTableShow: boolean) {
@@ -65,7 +67,7 @@ export default function Home() {
       });
       setTableShow(true);
     } catch (e) {
-      let message = "不明なエラーが発生しました。";
+      let message = '不明なエラーが発生しました。';
       if (e instanceof Error) {
         message = e.message;
       }
@@ -97,7 +99,7 @@ export default function Home() {
         ingredients.add(row.ingredient);
       } else {
         const index = newResult.findIndex((v) => v.ingredient === row.ingredient);
-        newResult[index].amount += "+" + row.amount;
+        newResult[index].amount += '+' + row.amount;
       }
     }
     setTableData(newResult);

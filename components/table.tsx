@@ -1,5 +1,5 @@
-import styles from "./table.module.css";
-import { ChangeEvent, useCallback, useEffect, useState } from "react";
+import styles from './table.module.css';
+import { ChangeEvent, useCallback, useEffect, useState } from 'react';
 
 export interface TableProps {
   checked: boolean;
@@ -16,7 +16,13 @@ interface Props {
   handleGroup: () => void;
 }
 
-export default function Table({ data, handleChangeChecked, handleSorted, handleReset, handleGroup }: Props) {
+export default function Table({
+  data,
+  handleChangeChecked,
+  handleSorted,
+  handleReset,
+  handleGroup,
+}: Props) {
   const [tbodyElem, setTbodyElem] = useState<JSX.Element>();
 
   // チェック済のものを下に持ってくる
