@@ -4,7 +4,7 @@ url: <https://ingredients-checklist.vercel.app/>
 
 ## Description
 
-Webサイトからレシピを取得し、買い物リストを作成するアプリケーションです。
+Web サイトからレシピを取得し、買い物リストを作成するアプリケーションです。
 
 To run the development server, clone the repo and run:
 
