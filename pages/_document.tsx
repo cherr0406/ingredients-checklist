@@ -6,6 +6,7 @@ export default function Document() {
       <Head>
         <meta name="description" content="レシピから材料だけを抽出してリストアップします。" />
         <meta name="theme-color" content="rgb(220, 219, 215)" />
+        <meta name="robots" content="noindex" />
         <link rel="icon" href="/images/favicon.ico" />
       </Head>
       <body>
