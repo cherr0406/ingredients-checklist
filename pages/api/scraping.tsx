@@ -160,36 +160,35 @@ export async function scraping(url: string): Promise<TableProps[]> {
 
 // リュウジのバズレシピ
 async function bazurecipe(page: Page): Promise<TableProps[]> {
-  // #top > div.l-wrapper > main > div > div.postContents > section > div:nth-child(5)
-  const section = await page.waitForSelector('section.content');
-  const parents = await section?.$$('div:not([class])');
-  if (!parents) {
+  // section.content > div:not([class]) > (text)
+  // <div style="background: #f4f4f4; padding: 15px; border: 2px solid #e0e0e0; border-radius: 10px; word-break: break-all;"><b>【材料】</b><br>
+  // キャベツ…1／2玉<br>
+  // ジャガイモ…300g<br>
+  // ☆味変で粉チーズ</div>
+  const ingredientsElem = await page.waitForSelector('section.content > div:not([class])');
+  const allIngredientsText: string =
+    (await (await ingredientsElem?.getProperty('textContent'))?.jsonValue()) ?? '';
+  if (allIngredientsText.indexOf('材料') === -1) {
     return new Promise((rejects) => rejects([]));
   }
-  let ingredientsTexts: string[] = [];
-  for (const parent of parents) {
-    // Error: Query set to use "xpath", but no query handler of that name was found が発生する
-    if ((await parent.$$('xpath/' + ".//b[contains(text(), '材料')]")) !== null) {
-      ingredientsTexts = (await page.evaluate((elm) => elm?.textContent ?? '', parent))
-        .split('\n')
-        .slice(1);
-      break;
-    }
-  }
 
-  // 文字列操作
-  // todo:"＝ソース＝"のような材料上の区切りがある場合に対応（現状はスキップしている）
   const result: TableProps[] = [];
-  for (const ingredientsText of ingredientsTexts) {
+  const ingredientsTextList = allIngredientsText.split('\n').slice(1); // 1行目は'材料'の文字列なので除外
+  for (const ingredientsText of ingredientsTextList) {
+    // todo:"＝ソース＝"のような材料上の区切りがある場合に対応（現状はスキップしている）
     if (ingredientsText.indexOf('＝') !== -1) {
       continue;
     }
-    const [ingredient, amount] = ingredientsText.split(/…+/).map((str) => str.trim());
-    result.push({
-      checked: false,
-      ingredient: ingredient,
-      amount: amount,
-    });
+    const [ingredient, amount] = ingredientsText
+      .split(/…+/)
+      .map((str) => str.trim().replace(new RegExp('◯|◎', 'g'), ''));
+    if (ingredient && amount) {
+      result.push({
+        checked: false,
+        ingredient: ingredient,
+        amount: amount,
+      });
+    }
   }
 
   return new Promise((resolve) => resolve(result));
@@ -295,6 +294,6 @@ async function cookpad(page: Page): Promise<TableProps[]> {
       });
     }
   }
-  console.log(result);
+  
   return new Promise((resolve) => resolve(result));
 }
