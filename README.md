@@ -1,4 +1,4 @@
-# Ingredients Checklist
+# (WIP)Ingredients Checklist
 
 url: <https://ingredients-checklist.vercel.app/>
 
@@ -16,6 +16,7 @@ npm run dev
 
 - [x] レシピの取得元を複数にする
 - [x] 同じ材料の場合、量を合算する
+- [ ] モバイル対応
 - [ ] レシピの材料を編集できるようにする（追加、削除、変更）
 - [ ] レシピ名ごとに買い物リストを作成できるようにする
 
