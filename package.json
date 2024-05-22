@@ -11,7 +11,7 @@
   "dependencies": {
     "@sparticuz/chromium": "^117.0.0",
     "next": "latest",
-    "puppeteer-core": "^10.4.0",
+    "puppeteer-core": "^22.9.0",
     "react": "latest",
     "react-dom": "latest",
     "swr": "^2.2.4"
