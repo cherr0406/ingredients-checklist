@@ -1,5 +1,5 @@
-import chromium from '@sparticuz/chromium';
-import puppeteer, { Page } from 'puppeteer-core';
+import axios from 'axios';
+import { load, CheerioAPI } from 'cheerio';
 import { TableProps } from '@/components/table';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
@@ -23,93 +23,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 
 export async function scraping(url: string): Promise<TableProps[]> {
-  const minimal_args = [
-    '--autoplay-policy=user-gesture-required',
-    '--disable-background-networking',
-    '--disable-background-timer-throttling',
-    '--disable-backgrounding-occluded-windows',
-    '--disable-breakpad',
-    '--disable-client-side-phishing-detection',
-    '--disable-component-update',
-    '--disable-default-apps',
-    '--disable-dev-shm-usage',
-    '--disable-domain-reliability',
-    '--disable-extensions',
-    '--disable-features=AudioServiceOutOfProcess',
-    '--disable-hang-monitor',
-    '--disable-ipc-flooding-protection',
-    '--disable-notifications',
-    '--disable-offer-store-unmasked-wallet-cards',
-    '--disable-popup-blocking',
-    '--disable-print-preview',
-    '--disable-prompt-on-repost',
-    '--disable-renderer-backgrounding',
-    '--disable-setuid-sandbox',
-    '--disable-speech-api',
-    '--disable-sync',
-    '--hide-scrollbars',
-    '--ignore-gpu-blacklist',
-    '--metrics-recording-only',
-    '--mute-audio',
-    '--no-default-browser-check',
-    '--no-first-run',
-    '--no-pings',
-    '--no-sandbox',
-    '--no-zygote',
-    '--password-store=basic',
-    '--use-gl=swiftshader',
-    '--use-mock-keychain',
-  ];
-
-  const exePath =
-    process.platform === 'win32'
-      ? 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
-      : process.platform === 'linux'
-      ? '/usr/bin/google-chrome'
-      : '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-
   const isProd = process.env.NEXT_PUBLIC_VERCEL;
 
-  const getOption = async () => {
-    let option = {};
-    if (isProd) {
-      option = {
-        args: chromium.args,
-        defaultViewport: chromium.defaultViewport,
-        executablePath: await chromium.executablePath(),
-        headless: chromium.headless,
-      };
-      if (chromium.headless == 'new') {
-        option = {
-          ...option,
-          headless: chromium.headless,
-        };
-      }
-    } else {
-      option = {
-        args: minimal_args,
-        executablePath: exePath,
-        headless: 'new',
-      };
-    }
-    return option;
-  };
-
-  const option = await getOption();
-  const browser = await puppeteer.launch(option);
-
   try {
-    const page = await browser.newPage();
-    await page.setRequestInterception(true);
-    page.on('request', (request) => {
-      if (url === request.url()) {
-        request.continue().catch((err) => console.error(err));
-      } else {
-        request.abort().catch((err) => console.error(err));
-      }
+    // User-Agentを設定
+    const response = await axios.get(url.toString(), {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+      timeout: 5000, // 5秒でタイムアウト
     });
-    page.setDefaultNavigationTimeout(0);
-    await page.goto(url, { waitUntil: 'networkidle2' });
+
+    const $ = load(response.data);
 
     // ドメインからレシピサイトを判定
     const domain = new URL(url).hostname;
@@ -117,24 +43,23 @@ export async function scraping(url: string): Promise<TableProps[]> {
 
     let result: TableProps[] = [];
     switch (domain) {
-      // リュウジのバズレシピ
       case 'bazurecipe.com':
-        result = await bazurecipe(page);
+        result = await bazurecipe($);
         break;
 
       // つくおき
       case 'cookien.com':
-        result = await cookien(page);
+        result = await cookien($);
         break;
 
       // DELISH KITCHEN
       case 'delishkitchen.tv':
-        result = await delishkitchen(page);
+        result = await delishkitchen($);
         break;
 
       // クックパッド
       case 'cookpad.com':
-        result = await cookpad(page);
+        result = await cookpad($);
         break;
 
       default:
@@ -153,153 +78,133 @@ export async function scraping(url: string): Promise<TableProps[]> {
     }
     console.error(error);
     throw new Error(message);
-  } finally {
-    await browser.close();
   }
 }
 
 // リュウジのバズレシピ
-async function bazurecipe(page: Page): Promise<TableProps[]> {
+async function bazurecipe($: CheerioAPI): Promise<TableProps[]> {
   // section.content > div:not([class]) > (text)
   // <div style="background: #f4f4f4; padding: 15px; border: 2px solid #e0e0e0; border-radius: 10px; word-break: break-all;"><b>【材料】</b><br>
   // キャベツ…1／2玉<br>
   // ジャガイモ…300g<br>
   // ☆味変で粉チーズ</div>
-  const ingredientsElem = await page.waitForSelector('section.content > div:not([class])');
-  const allIngredientsText: string =
-    (await (await ingredientsElem?.getProperty('textContent'))?.jsonValue()) ?? '';
-  if (allIngredientsText.indexOf('材料') === -1) {
-    return new Promise((rejects) => rejects([]));
+  const result: TableProps[] = [];
+  const ingredientsText = $('section.content > div:not([class])').text();
+
+  if (!ingredientsText.includes('材料')) {
+    return [];
   }
 
-  const result: TableProps[] = [];
-  const ingredientsTextList = allIngredientsText.split('\n').slice(1); // 1行目は'材料'の文字列なので除外
-  for (const ingredientsText of ingredientsTextList) {
-    // todo:"＝ソース＝"のような材料上の区切りがある場合に対応（現状はスキップしている）
-    if (ingredientsText.indexOf('＝') !== -1) {
-      continue;
-    }
-    const [ingredient, amount] = ingredientsText
-      .split(/…+/)
-      .map((str) => str.trim().replace(new RegExp('◯|◎', 'g'), ''));
+  const lines = ingredientsText.split('\n').slice(1);
+  for (const line of lines) {
+    if (line.includes('＝')) continue;
+
+    const [ingredient, amount] = line.split(/…+/).map((str) => str.trim().replace(/[◯◎]/g, ''));
+
     if (ingredient && amount) {
       result.push({
         checked: false,
-        ingredient: ingredient,
-        amount: amount,
+        ingredient,
+        amount,
       });
     }
   }
 
-  return new Promise((resolve) => resolve(result));
+  return result;
 }
 
 // つくおき
-async function cookien(page: Page): Promise<TableProps[]> {
+function cookien($: CheerioAPI): TableProps[] {
+  // #r_contents > p, #r_contents > p > span
+  // <p>豚もも薄切り肉<span>約２００ｇ（８～１０枚）</span></p>
+  // -> 豚もも薄切り肉 と 約２００ｇ（８～１０枚） をそれぞれ取得
+  const result: TableProps[] = [];
+
   try {
-    // #r_contents > p, #r_contents > p > span
-    // <p>豚もも薄切り肉<span>約２００ｇ（８～１０枚）</span></p>
-    // -> 豚もも薄切り肉 と 約２００ｇ（８～１０枚） をそれぞれ取得
-    const rContents = await page.waitForSelector('#r_contents', { timeout: 5000 });
-    const ingredientsElems = await rContents?.$$('p');
-    if (!ingredientsElems) {
-      return new Promise((rejects) => rejects([]));
-    }
-    const result: TableProps[] = [];
-    for (const ingredientsElem of ingredientsElems) {
-      const text: string =
-        (await (await ingredientsElem.getProperty('textContent'))?.jsonValue()) ?? '';
-      const amount: string =
-        (await (
-          await (await ingredientsElem.$('span'))?.getProperty('textContent')
-        )?.jsonValue()) ?? '';
+    $('#r_contents > p').each((_, elem) => {
+      const text = $(elem).text();
+      const amount = $(elem).find('span').text();
       // text - amount で材料名を取得
       // ◯,◎を消去
       // （メモ1）,（メモ2）,...を消去
       const ingredient = text
-        .replace(new RegExp('(.*)' + amount), '$1')
-        .replace(new RegExp('◯|◎', 'g'), '')
-        .replace(/（メモ.*）/g, '');
-      result.push({
-        checked: false,
-        ingredient: ingredient,
-        amount: amount,
-      });
-    }
+        .replace(amount, '')
+        .replace(/[◯◎]/g, '')
+        .replace(/（メモ.*）/g, '')
+        .trim();
 
-    return new Promise((resolve) => resolve(result));
+      if (ingredient && amount) {
+        result.push({
+          checked: false,
+          ingredient,
+          amount,
+        });
+      }
+    });
+
+    return result;
   } catch (error) {
     console.error('Error in cookien function:', error);
-    return new Promise((rejects) => rejects([]));
+    return [];
   }
 }
 
 // DELISH KITCHEN
-async function delishkitchen(page: Page): Promise<TableProps[]> {
+async function delishkitchen($: CheerioAPI): Promise<TableProps[]> {
   // ul.ingredient-list > li
   // <li class="ingredient" data-v-ae6b758c="">
   //  <a href="..." class="ingredient-name" data-v-ae6b758c=""> ピーマン </a>
   //  <span class="ingredient-serving" data-v-ae6b758c="">2個</span>
   // </li>
-  const ingredientList = await page.waitForSelector('ul.ingredient-list');
-  const ingredientsElems = await ingredientList?.$$('li');
-  if (!ingredientsElems) {
-    return new Promise((rejects) => rejects([]));
-  }
   const result: TableProps[] = [];
-  for (const ingredientsElem of ingredientsElems) {
-    const ingredient: string =
-      (await (
-        await (await ingredientsElem.$('.ingredient-name'))?.getProperty('textContent')
-      )?.jsonValue()) ?? '';
-    const amount: string =
-      (await (
-        await (await ingredientsElem.$('.ingredient-serving'))?.getProperty('textContent')
-      )?.jsonValue()) ?? '';
+
+  $('ul.ingredient-list > li').each((_, elem) => {
+    const ingredient = $(elem).find('.ingredient-name').text().trim();
+    const amount = $(elem).find('.ingredient-serving').text().trim();
+
     if (ingredient && amount) {
       result.push({
         checked: false,
-        ingredient: ingredient,
-        amount: amount,
+        ingredient,
+        amount,
       });
     }
-  }
+  });
 
-  return new Promise((resolve) => resolve(result));
+  return result;
 }
 
 // クックパッド
-async function cookpad(page: Page): Promise<TableProps[]> {
-  // #ingredients_list > div.ingredient_row
-  // <div class="ingredient_row">
-  //   <div class="ingredient_name"><span class="name">鶏ひき肉</span></div>
-  //   <div class="ingredient_quantity amount">300g〜350g</div>
-  // </div>
-  const ingredientsList = await page.waitForSelector('#ingredients_list');
-  const ingredientsElems = await ingredientsList?.$$('div.ingredient_row');
-  if (!ingredientsElems) {
-    return new Promise((rejects) => rejects([]));
-  }
+async function cookpad($: CheerioAPI): Promise<TableProps[]> {
+  // #ingredients > div.ingredient-list > ol
+  // <li id="ingredient_135664599" class="justified-quantity-and-name overflow-wrap-anywhere not-headline">
+  //   <span>鶏もも肉</span> <bdi class="font-semibold">1枚（300g）</bdi>
+  // </li>
+  // <li id="ingredient_135664603" class="justified-quantity-and-name overflow-wrap-anywhere font-semibold headline">
+  //   <span>【調味料】･･･★は先に混ぜておく</span> <bdi class="font-semibold"></bdi>
+  // </li>
   const result: TableProps[] = [];
-  for (const ingredientsElem of ingredientsElems) {
-    const ingredient_raw: string =
-      (await (
-        await (await ingredientsElem.$('.ingredient_name .name'))?.getProperty('textContent')
-      )?.jsonValue()) ?? '';
-    // ◯,◎,☆を削除
-    const ingredient = ingredient_raw.replace(new RegExp('☆|◯|◎', 'g'), '');
-    const amount: string =
-      (await (
-        await (await ingredientsElem.$('.ingredient_quantity'))?.getProperty('textContent')
-      )?.jsonValue()) ?? '';
+
+  $('#ingredients > div.ingredient-list > ol > li').each((_, elem) => {
+    console.log('elem:', elem);
+    // headlineクラスを持つ要素は材料名ではないのでスキップ
+    if ($(elem).hasClass('headline')) {
+      return;
+    }
+    const ingredient_raw = $(elem).find('span').text().trim();
+    console.log('ingredient_raw:', ingredient_raw);
+    // ◯,◎,☆,★を削除
+    const ingredient = ingredient_raw.replace(/[☆★◯◎]/g, '');
+    const amount = $(elem).find('bdi').text().trim();
+
     if (ingredient && amount) {
       result.push({
         checked: false,
-        ingredient: ingredient,
-        amount: amount,
+        ingredient,
+        amount,
       });
     }
-  }
+  });
 
-  return new Promise((resolve) => resolve(result));
+  return result;
 }
