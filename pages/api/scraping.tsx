@@ -1,7 +1,7 @@
 import chromium from '@sparticuz/chromium';
 import puppeteer, { Page } from 'puppeteer-core';
 import { TableProps } from '@/components/table';
-import { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiRequest, NextApiResponse } from 'next';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { url } = req.query;
@@ -109,7 +109,7 @@ export async function scraping(url: string): Promise<TableProps[]> {
       }
     });
     page.setDefaultNavigationTimeout(0);
-    await page.goto(url);
+    await page.goto(url, { waitUntil: 'networkidle2' });
 
     // ドメインからレシピサイトを判定
     const domain = new URL(url).hostname;
@@ -151,7 +151,7 @@ export async function scraping(url: string): Promise<TableProps[]> {
     if (error instanceof Error) {
       message = error.message;
     }
-    console.log(error);
+    console.error(error);
     throw new Error(message);
   } finally {
     await browser.close();
@@ -196,36 +196,42 @@ async function bazurecipe(page: Page): Promise<TableProps[]> {
 
 // つくおき
 async function cookien(page: Page): Promise<TableProps[]> {
-  // #r_contents > p, #r_contents > p > span
-  // <p>豚もも薄切り肉<span>約２００ｇ（８～１０枚）</span></p>
-  // -> 豚もも薄切り肉 と 約２００ｇ（８～１０枚） をそれぞれ取得
-  const rContents = await page.waitForSelector('#r_contents');
-  const ingredientsElems = await rContents?.$$('p');
-  if (!ingredientsElems) {
+  try {
+    // #r_contents > p, #r_contents > p > span
+    // <p>豚もも薄切り肉<span>約２００ｇ（８～１０枚）</span></p>
+    // -> 豚もも薄切り肉 と 約２００ｇ（８～１０枚） をそれぞれ取得
+    const rContents = await page.waitForSelector('#r_contents', { timeout: 5000 });
+    const ingredientsElems = await rContents?.$$('p');
+    if (!ingredientsElems) {
+      return new Promise((rejects) => rejects([]));
+    }
+    const result: TableProps[] = [];
+    for (const ingredientsElem of ingredientsElems) {
+      const text: string =
+        (await (await ingredientsElem.getProperty('textContent'))?.jsonValue()) ?? '';
+      const amount: string =
+        (await (
+          await (await ingredientsElem.$('span'))?.getProperty('textContent')
+        )?.jsonValue()) ?? '';
+      // text - amount で材料名を取得
+      // ◯,◎を消去
+      // （メモ1）,（メモ2）,...を消去
+      const ingredient = text
+        .replace(new RegExp('(.*)' + amount), '$1')
+        .replace(new RegExp('◯|◎', 'g'), '')
+        .replace(/（メモ.*）/g, '');
+      result.push({
+        checked: false,
+        ingredient: ingredient,
+        amount: amount,
+      });
+    }
+
+    return new Promise((resolve) => resolve(result));
+  } catch (error) {
+    console.error('Error in cookien function:', error);
     return new Promise((rejects) => rejects([]));
   }
-  const result: TableProps[] = [];
-  for (const ingredientsElem of ingredientsElems) {
-    const text: string =
-      (await (await ingredientsElem.getProperty('textContent'))?.jsonValue()) ?? '';
-    const amount: string =
-      (await (await (await ingredientsElem.$('span'))?.getProperty('textContent'))?.jsonValue()) ??
-      '';
-    // text - amount で材料名を取得
-    // ◯,◎を消去
-    // （メモ1）,（メモ2）,...を消去
-    const ingredient = text
-      .replace(new RegExp('(.*)' + amount), '$1')
-      .replace(new RegExp('◯|◎', 'g'), '')
-      .replace(/（メモ.*）/g, '');
-    result.push({
-      checked: false,
-      ingredient: ingredient,
-      amount: amount,
-    });
-  }
-
-  return new Promise((resolve) => resolve(result));
 }
 
 // DELISH KITCHEN
@@ -294,6 +300,6 @@ async function cookpad(page: Page): Promise<TableProps[]> {
       });
     }
   }
-  
+
   return new Promise((resolve) => resolve(result));
 }
