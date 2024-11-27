@@ -9,7 +9,7 @@ Web サイトからレシピを取得し、買い物リストを作成するア�
 To run the development server, clone the repo and run:
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 ## Future Work
