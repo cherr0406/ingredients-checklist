@@ -58,7 +58,16 @@ export async function scraping(url: string): Promise<TableProps[]> {
     let result: TableProps[] = [];
     switch (domain) {
       case 'bazurecipe.com':
-        result = await bazurecipe($);
+        // スラッグを取得
+        const slug = url.split('/').filter(Boolean).pop();
+        // WordPressのREST APIを使用
+        const apiUrl = `https://bazurecipe.com/wp-json/wp/v2/posts?slug=${slug}`; // 利用可能なエンドポイントのリストを取得
+        const response = await axios.get(apiUrl, { headers });
+        const post = response.data[0]; // スラッグは一意なので配列の最初の要素を使用
+
+        // コンテンツから材料部分を抽出
+        const content = post.content.rendered;
+        result = await bazurecipe(load(content));
         break;
 
       // つくおき
@@ -97,13 +106,13 @@ export async function scraping(url: string): Promise<TableProps[]> {
 
 // リュウジのバズレシピ
 async function bazurecipe($: CheerioAPI): Promise<TableProps[]> {
-  // section.content > div:not([class]) > (text)
   // <div style="background: #f4f4f4; padding: 15px; border: 2px solid #e0e0e0; border-radius: 10px; word-break: break-all;"><b>【材料】</b><br>
   // キャベツ…1／2玉<br>
   // ジャガイモ…300g<br>
   // ☆味変で粉チーズ</div>
+
   const result: TableProps[] = [];
-  const ingredientsText = $('section.content > div:not([class])').text();
+  const ingredientsText = $('div').text();
 
   if (!ingredientsText.includes('材料')) {
     return [];
@@ -206,7 +215,6 @@ async function cookpad($: CheerioAPI): Promise<TableProps[]> {
       return;
     }
     const ingredient_raw = $(elem).find('span').text().trim();
-    console.log('ingredient_raw:', ingredient_raw);
     // ◯,◎,☆,★を削除
     const ingredient = ingredient_raw.replace(/[☆★◯◎]/g, '');
     const amount = $(elem).find('bdi').text().trim();
