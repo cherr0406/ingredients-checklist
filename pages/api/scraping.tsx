@@ -22,10 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-export async function scraping(url: string): Promise<TableProps[]> {
-  // Preview or Production branch
-  const isProd = process.env.NEXT_PUBLIC_VERCEL;
-
+async function get_response_data(url: string): Promise<any> {
   const headers = {
     'User-Agent':
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -42,46 +39,59 @@ export async function scraping(url: string): Promise<TableProps[]> {
     'Upgrade-Insecure-Requests': '1',
   };
 
-  try {
-    // User-Agentを設定
-    const response = await axios.get(url.toString(), {
-      headers: headers,
-      timeout: 10000, // 5秒でタイムアウト
-    });
+  const response = await axios.get(url, { headers: headers, timeout: 10000 });
 
-    const $ = load(response.data);
+  if (Array.isArray(response.data)) {
+    return response.data[0];
+  }
+
+  return response.data;
+}
+
+export async function scraping(url: string): Promise<TableProps[]> {
+  // Preview or Production branch
+  const isProd = process.env.NEXT_PUBLIC_VERCEL;
+
+  try {
+    let data: string;
+    let $: CheerioAPI;
+    let result: TableProps[] = [];
 
     // ドメインからレシピサイトを判定
     const domain = new URL(url).hostname;
-    console.log('domain: ', domain);
 
-    let result: TableProps[] = [];
     switch (domain) {
       case 'bazurecipe.com':
         // スラッグを取得
         const slug = url.split('/').filter(Boolean).pop();
         // WordPressのREST APIを使用
         const apiUrl = `https://bazurecipe.com/wp-json/wp/v2/posts?slug=${slug}`; // 利用可能なエンドポイントのリストを取得
-        const response = await axios.get(apiUrl, { headers });
-        const post = response.data[0]; // スラッグは一意なので配列の最初の要素を使用
+        const post = await get_response_data(apiUrl);
 
         // コンテンツから材料部分を抽出
-        const content = post.content.rendered;
-        result = await bazurecipe(load(content));
+        data = post.content.rendered;
+        result = await bazurecipe(load(data));
         break;
 
       // つくおき
       case 'cookien.com':
+        // User-Agentを設定
+        data = await get_response_data(url);
+        $ = load(data);
         result = await cookien($);
         break;
 
       // DELISH KITCHEN
       case 'delishkitchen.tv':
+        data = await get_response_data(url);
+        $ = load(data);
         result = await delishkitchen($);
         break;
 
       // クックパッド
       case 'cookpad.com':
+        data = await get_response_data(url);
+        $ = load(data);
         result = await cookpad($);
         break;
 
@@ -209,7 +219,6 @@ async function cookpad($: CheerioAPI): Promise<TableProps[]> {
   const result: TableProps[] = [];
 
   $('#ingredients > div.ingredient-list > ol > li').each((_, elem) => {
-    console.log('elem:', elem);
     // headlineクラスを持つ要素は材料名ではないのでスキップ
     if ($(elem).hasClass('headline')) {
       return;
