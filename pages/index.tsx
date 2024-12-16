@@ -2,9 +2,10 @@ import styles from './index.module.css';
 import Layout from '@/components/layout';
 import { useState } from 'react';
 import Table, { TableProps } from '@/components/table';
+import { scrapeRecipe } from '@/lib/scraping';
 import useSWRMutation, { MutationFetcher } from 'swr/mutation';
 
-const tablePropsFetcher: MutationFetcher<TableProps[]> = async (apiUrl: string) => {
+const tablePropsFetcher: MutationFetcher<TableProps[]> = async () => {
   // 入力されたURLを取得
   const urlInput: HTMLInputElement | null = document.getElementById(
     'url'
@@ -16,20 +17,16 @@ const tablePropsFetcher: MutationFetcher<TableProps[]> = async (apiUrl: string) 
   }
 
   const data: TableProps[] = [];
-  // API Routeにリクエスト
+  // リクエスト
   for (const url of urls) {
-    const res = await fetch(apiUrl + '?url=' + encodeURIComponent(url));
-    // エラーハンドリング
-    if (!res.ok) {
-      const errorRes = await res.json();
-      throw new Error(errorRes.error);
+    try {
+      const result = await scrapeRecipe(url);
+      data.push(...result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '予期せぬエラーが発生しました';
+      throw new Error(`レシピの取得に失敗しました: ${message}`);
     }
-    const result = await res.json();
-
-    // テーブルに追加
-    data.push(...result);
   }
-
   return data;
 };
 
@@ -37,7 +34,7 @@ export default function Home() {
   const [tableData, setTableData] = useState<TableProps[]>([]);
   const [isTableShow, setTableShow] = useState<boolean>(false);
   const [displayMsg, setDisplayMsg] = useState<string>('結果がここに表示されます');
-  const { trigger, isMutating } = useSWRMutation('/api/scraping', tablePropsFetcher);
+  const { trigger, isMutating } = useSWRMutation('/', tablePropsFetcher); // SWRのミューテーションは不要
 
   // テーブルを表示
   function resultElement(isTableShow: boolean) {
