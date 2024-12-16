@@ -3,28 +3,12 @@ import axios from 'axios';
 import { load, CheerioAPI } from 'cheerio';
 import { TableProps } from '@/components/table';
 
-const headers = {
-  'User-Agent':
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-  'Accept-Language': 'ja;q=0.9,en-US;q=0.8,en;q=0.7',
-  'Accept-Encoding': 'gzip, deflate, br',
-  Referer: 'https://www.google.com/',
-  DNT: '1',
-  Connection: 'keep-alive',
-  'Sec-Fetch-Dest': 'document',
-  'Sec-Fetch-Mode': 'navigate',
-  'Sec-Fetch-Site': 'cross-site',
-  'Sec-Fetch-User': '?1',
-  'Upgrade-Insecure-Requests': '1',
-};
-
 /**
  * HTTPリクエストを送信してレスポンスデータを取得
  */
 async function getResponseData(url: string): Promise<any> {
   try {
-    const response = await axios.get(url, { headers, timeout: 10000 });
+    const response = await axios.get(url, { timeout: 10000 });
     return Array.isArray(response.data) ? response.data[0] : response.data;
   } catch (error) {
     console.error('Failed to fetch data:', error);
