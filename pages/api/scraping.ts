@@ -22,11 +22,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const $ = load(response.data);
     let ingredients = await scrapeRecipe(url);
-
-    res.status(200).json(ingredients);
+    return res.status(200).json(ingredients);
   } catch (error) {
+    // if ERR_BAD_REQUEST
+    if (axios.isAxiosError(error) && error.response && error.response.status === 403) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
     console.error('Error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       message: error instanceof Error ? error.message : 'Unknown error occurred',
     });
   }

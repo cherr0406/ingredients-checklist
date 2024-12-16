@@ -30,14 +30,13 @@ const tablePropsFetcher: MutationFetcher<TableProps[]> = async (apiUrl: string) 
       });
 
       if (!res.ok) {
-        console.error(`API Route failed with status ${res.status}`);
         throw new Error(`API Route failed with status ${res.status}`);
       }
       const result = await res.json();
       data.push(...result);
     } catch (error) {
       // try client-side scraping if API Route fails
-      console.log('Error with API Route, trying client-side scraping:', error);
+      console.log('Error with API Route, trying client-side fetching:', error);
       try {
         const clientSideResult = await scrapeRecipe(url.trim());
         data.push(...clientSideResult);
