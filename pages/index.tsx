@@ -3,6 +3,7 @@ import Layout from '@/components/layout';
 import { useState } from 'react';
 import Table, { TableProps } from '@/components/table';
 import useSWRMutation, { MutationFetcher } from 'swr/mutation';
+import { scrapeRecipe } from '@/lib/scraping';
 
 const tablePropsFetcher: MutationFetcher<TableProps[]> = async (apiUrl: string) => {
   // 入力されたURLを取得
@@ -18,16 +19,32 @@ const tablePropsFetcher: MutationFetcher<TableProps[]> = async (apiUrl: string) 
   const data: TableProps[] = [];
   // API Routeにリクエスト
   for (const url of urls) {
-    const res = await fetch(apiUrl + '?url=' + encodeURIComponent(url));
-    // エラーハンドリング
-    if (!res.ok) {
-      const errorRes = await res.json();
-      throw new Error(errorRes.error);
-    }
-    const result = await res.json();
+    try {
+      // まずAPI Routeを試す
+      const res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url: url.trim() }),
+      });
 
-    // テーブルに追加
-    data.push(...result);
+      if (!res.ok) {
+        throw new Error(`API Route failed with status ${res.status}`);
+      }
+      const result = await res.json();
+      data.push(...result);
+    } catch (error) {
+      // try client-side scraping if API Route fails
+      // console.log('Error with API Route, trying client-side fetching:', error);
+      try {
+        const clientSideResult = await scrapeRecipe(url.trim());
+        data.push(...clientSideResult);
+      } catch (clientError) {
+        console.error('Client-side scraping also failed:', clientError);
+        throw clientError;
+      }
+    }
   }
 
   return data;
@@ -38,7 +55,6 @@ export default function Home() {
   const [isTableShow, setTableShow] = useState<boolean>(false);
   const [displayMsg, setDisplayMsg] = useState<string>('結果がここに表示されます');
   const { trigger, isMutating } = useSWRMutation('/api/scraping', tablePropsFetcher);
-
   // テーブルを表示
   function resultElement(isTableShow: boolean) {
     if (isTableShow) {
